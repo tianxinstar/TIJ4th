@@ -1,0 +1,84 @@
+1.##### 
+	说明：最大值最小值一样的好处是，减少内存不足，jvm自增导致的耗时
+	而在 JDK 1.7和 JDK 1.8 中，会出现堆内存溢出，并且 JDK 1.8中 PermSize和 MaxPermSize已经无效。
+	因此，可以大致验证 JDK 1.7 和 1.8 将字符串常量由永久代转移到堆中，并且 JDK 1.8 中已经不存在永久代的结论。
+	 在 JDK 1.8 中， HotSpot 已经没有 “PermGen space”这个区间了，取而代之是一个叫做 Metaspace（元空间） 的东西。
+	　　-XX:MetaspaceSize，初始空间大小，达到该值就会触发垃圾收集进行类型卸载，同时GC会对该值进行调整：如果释放了大量的空间，就适当降低该值；如果释放了很少的空间，那么在不超过MaxMetaspaceSize时，适当提高该值。
+	　　-XX:MaxMetaspaceSize，最大空间，默认是没有限制的。
+	　　除了上面两个指定大小的选项以外，还有两个与 GC 相关的属性：
+	　　-XX:MinMetaspaceFreeRatio，在GC之后，最小的Metaspace剩余空间容量的百分比，减少为分配空间所导致的垃圾收集
+	　　-XX:MaxMetaspaceFreeRatio，在GC之后，最大的Metaspace剩余空间容量的百分比，减少为释放空间所导致的垃圾收集
+	
+2.##### eclipse.ini文件添加下面参数：
+	java 1.7之前 eclipse配置
+	-Xverify:none 							--[字节码验证去除，eclipse字节码比较靠谱]
+	-Xms1024m								--[java堆最小]
+	-Xmx1024m								--[java堆最大]
+	-Xmn256m								--[新生代代大小]
+	-XX:PermSize=256m						--[永久代最小(方法区)]
+	-XX:MaxPermSize=256m  					--[永久代最大(方法区)]
+	-XX:+DisableExplicitGC					--[禁止代码中显示调用GC,System.gc()失效]
+	-XX:+UseConcMarkSweepGC					--[设置老年为并发收集]
+	-XX:+UseParNewGC						--[设置年轻代为并行收集，vm默认的，写在这里使配置更加明确]
+	-XX:CMSInitiatingOccupancyFraction=85 	--[老年代堆空间的使用率,jvm默认68]
+	
+	java 1.8 eclipse配置
+	-Xverify:none 							--[字节码验证去除，eclipse字节码比较靠谱]
+	-Xms1024m								--[java堆最小]
+	-Xmx1024m								--[java堆最大]
+	-Xmn256m								--[新生代代大小]
+	-XX:MetaspaceSize=256m					--[元空间最小]
+	-XX:MaxMetaspaceSize=256m  				--[元空间最大]
+	-XX:+DisableExplicitGC					--[禁止代码中显示调用GC,System.gc()失效]
+	-XX:+UseConcMarkSweepGC					--[设置老年为并发收集]
+	-XX:+UseParNewGC						--[设置年轻代为并行收集，vm默认的，写在这里使配置更加明确]
+	-XX:CMSInitiatingOccupancyFraction=85	--[老年代堆空间的使用率,jvm默认68]
+	
+3.#####
+常见配置汇总
+       堆设置
+       -Xms：初始堆大小
+       -Xmx：最大堆大小
+       -XX:NewSize=n：设置年轻代大小
+       -XX:NewRatio=n：设置年轻代和年老代的比值。如：为3，表示年轻代与年老代比值为1：3，表示Eden：Survivor=3:2，一个Survivor区占整个年轻代的1/5。
+       -XX:MaxPermSize=n：设置持久代大小
+
+        收集器设置
+       -XX:+UseSerialGC：设置串行收集器
+       -XX:+UseParallelGC：设置并行收集器
+       -XX:+UseParalledlOldGC：设置并行年老代收集器
+       -XX:+UseConcMarkSweepGC：设置并发收集器
+
+        垃圾回收统计信息
+       -XX:+PrintGC
+       -XX:+PrintGCDetails
+       -XX:+PrintGCTimeStamps
+       -Xloggc:filename
+
+         并行收集器设置
+       -XX:ParallelGCThreads=n：设置并行收集器收集时使用的CPU数。并行收集线程数。
+       -XX:MaxGCPauseMillis=n：设置并行收集最大暂停时间
+       -XX:GCTimeRatio=n：设置垃圾回收时间占程序运行时间的百分比。公式为1/(1+N)
+
+         并发收集器设置
+       -XX:+CMSIncrementalMode：设置为增量模式。适用于单CPU情况。
+       -XX:+ParallelGCThreads=n：设置并发收集器年轻代收集方式为并行收集时，使用的CPU数。并行收集线程数。
+       
+4.#####推荐的JVM参数
+类型							参数
+运行模式						-sever
+整个堆内存大小				为-Xms和-Xmx设置相同的值。
+新生代空间大小				-XX:NewRatio: 2到4. -XX:NewSize=? –XX:MaxNewSize=?. 使用NewSize代替NewRatio也是可以的。
+持久代空间大小				-XX:PermSize=256m -XX:MaxPermSize=256m. 设置一个在运行中不会出现问题的值即可，这个参数不影响性能。
+GC日志						-Xloggc:$CATALINA_BASE/logs/gc.log -XX:+PrintGCDetails -XX:+PrintGCDateStamps. 
+									记录GC日志并不会特别地影响Java程序性能，推荐你尽可能记录日志。
+GC算法						-XX:+UseParNewGC -XX:+CMSParallelRemarkEnabled -XX:+UseConcMarkSweepGC -XX:CMSInitiatingOccupancyFraction=75. 
+									一般来说推荐使用这些配置，但是根据程序不同的特性，其他的也有可能更好。
+发生OOM时创建堆内存转储文件	-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=$CATALINA_BASE/logs
+发生OOM后的操作				-XX:OnOutOfMemoryError=$CATALINA_HOME/bin/stop.sh 或 -XX:OnOutOfMemoryError=$CATALINA_HOME/bin/restart.sh. 
+								记录内存转储文件后，为了管理的需要执行一个合适的操作。
+								
+								
+								
+								
+								
