@@ -8,4 +8,3 @@ class Cake {
 } /* Output:
 Pie.f()
 *///:~
-
